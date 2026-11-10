@@ -1,1 +1,62 @@
+name: Kamu Radarı APK
 
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+concurrency:
+  group: apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Kodu al
+        uses: actions/checkout@v4
+
+      - name: Node kur
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Java 17 kur
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+
+      - name: Bagimliliklari kur
+        run: npm install
+
+      - name: Android projesini olustur
+        run: npx cap add android
+
+      - name: Logo ve acilis ekranlarini uret
+        run: npx --yes @capacitor/assets generate --android
+
+      - name: Manifest ayarlari (bildirim izni + AdMob kimligi)
+        run: |
+          M=android/app/src/main/AndroidManifest.xml
+          sed -i 's#<application#<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>\n    <application#' $M
+          sed -i 's#</application>#<meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3940256099942544~3347511713"/></application>#' $M
+
+      - name: Web dosyalarini senkronize et
+        run: npx cap sync android
+
+      - name: Debug APK derle
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: APK'yi yukle
+        uses: actions/upload-artifact@v4
+        with:
+          name: kamu-radar-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
