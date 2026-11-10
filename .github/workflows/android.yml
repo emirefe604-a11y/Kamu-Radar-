@@ -17,13 +17,22 @@ jobs:
       - name: Kodu al
         uses: actions/checkout@v4
 
+      - name: Zip varsa ac
+        run: |
+          if [ -z "$(find . -name package.json -not -path "*/node_modules/*" -not -path "./.git/*" | head -1)" ]; then
+            for Z in $(find . -maxdepth 2 -name "*.zip" -not -path "./.git/*"); do
+              echo "Zip aciliyor: $Z"
+              unzip -oq "$Z" -d "$(dirname "$Z")"
+            done
+          fi
+
       - name: Proje klasorunu bul
         run: |
           echo "--- Repodaki dosyalar ---"
           ls -la
           P=$(find . -name package.json -not -path "*/node_modules/*" | head -1)
           if [ -z "$P" ]; then
-            echo "HATA: Repoda package.json bulunamadi. Zip'in ICINDEKI dosyalari repoya yukleyin."
+            echo "HATA: Repoda package.json bulunamadi. Zip bozuk olabilir veya package.json icermiyor."
             exit 1
           fi
           D=$(dirname "$P")
