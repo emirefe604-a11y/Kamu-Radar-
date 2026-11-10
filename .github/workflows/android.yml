@@ -17,6 +17,19 @@ jobs:
       - name: Kodu al
         uses: actions/checkout@v4
 
+      - name: Proje klasorunu bul
+        run: |
+          echo "--- Repodaki dosyalar ---"
+          ls -la
+          P=$(find . -name package.json -not -path "*/node_modules/*" | head -1)
+          if [ -z "$P" ]; then
+            echo "HATA: Repoda package.json bulunamadi. Zip'in ICINDEKI dosyalari repoya yukleyin."
+            exit 1
+          fi
+          D=$(dirname "$P")
+          echo "Proje klasoru: $D"
+          echo "APP_DIR=$D" >> "$GITHUB_ENV"
+
       - name: Node kur
         uses: actions/setup-node@v4
         with:
@@ -29,25 +42,30 @@ jobs:
           java-version: 17
 
       - name: Bagimliliklari kur
+        working-directory: ${{ env.APP_DIR }}
         run: npm install
 
       - name: Android projesini olustur
+        working-directory: ${{ env.APP_DIR }}
         run: npx cap add android
 
       - name: Logo ve acilis ekranlarini uret
+        working-directory: ${{ env.APP_DIR }}
         run: npx --yes @capacitor/assets generate --android
 
       - name: Manifest ayarlari (bildirim izni + AdMob kimligi)
+        working-directory: ${{ env.APP_DIR }}
         run: |
           M=android/app/src/main/AndroidManifest.xml
           sed -i 's#<application#<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>\n    <application#' $M
           sed -i 's#</application>#<meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3940256099942544~3347511713"/></application>#' $M
 
       - name: Web dosyalarini senkronize et
+        working-directory: ${{ env.APP_DIR }}
         run: npx cap sync android
 
       - name: Debug APK derle
-        working-directory: android
+        working-directory: ${{ env.APP_DIR }}/android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
@@ -56,5 +74,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: kamu-radar-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: ${{ env.APP_DIR }}/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
